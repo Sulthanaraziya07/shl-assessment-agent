@@ -6,7 +6,7 @@ import json
 app = FastAPI()
 
 # Load catalog
-with open("catalog.json", "r") as f:
+with open("catalog.json", "r", encoding="utf-8") as f:
     catalog = json.load(f)
 
 class Message(BaseModel):
@@ -15,6 +15,10 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: List[Message]
+
+@app.get("/")
+def root():
+    return {"message": "SHL Assessment Recommendation API"}
 
 @app.get("/health")
 def health():
@@ -25,29 +29,30 @@ def chat(req: ChatRequest):
 
     user_query = req.messages[-1].content.lower()
 
-    matched_items = []
+    recommendations = []
 
     for item in catalog:
 
-        name = item["name"].lower()
+        name = item.get("name", "").lower()
 
-        keywords = user_query.split()
+        if any(word in name for word in user_query.split()):
 
-        if any(word in name for word in keywords):
-            matched_items.append(item)
+            recommendations.append({
+                "name": item.get("name"),
+                "url": item.get("url"),
+                "test_type": item.get("test_type", "Unknown")
+            })
 
-    recommendations = []
+    if recommendations:
 
-    for item in matched_items[:5]:
-
-        recommendations.append({
-            "name": item["name"],
-            "url": item["url"],
-            "test_type": item["test_type"]
-        })
+        return {
+            "reply": "Here are recommended SHL assessments.",
+            "recommendations": recommendations[:10],
+            "end_of_conversation": False
+        }
 
     return {
-        "reply": "Here are recommended SHL assessments.",
-        "recommendations": recommendations,
+        "reply": "Can you provide more details about the role or skills required?",
+        "recommendations": [],
         "end_of_conversation": False
     }
