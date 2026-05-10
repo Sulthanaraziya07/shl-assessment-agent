@@ -2,21 +2,12 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List
 import json
-import faiss
-import numpy as np
-from sentence_transformers import SentenceTransformer
 
 app = FastAPI()
 
-# Load embedding model
-model = SentenceTransformer('all-MiniLM-L6-v2')
-
 # Load catalog
-with open("mapping.json", "r") as f:
+with open("catalog.json", "r") as f:
     catalog = json.load(f)
-
-# Load FAISS index
-index = faiss.read_index("shl_index.faiss")
 
 class Message(BaseModel):
     role: str
@@ -34,35 +25,20 @@ def chat(req: ChatRequest):
 
     user_query = req.messages[-1].content.lower()
 
-    vague_queries = [
-        "assessment",
-        "test",
-        "hiring",
-        "job",
-        "developer"
-    ]
+    matched_items = []
 
-    # Ask clarification for vague queries
-    if user_query.strip() in vague_queries:
+    for item in catalog:
 
-        return {
-            "reply": "Can you provide more details about the role, skills, or personality traits you are hiring for?",
-            "recommendations": [],
-            "end_of_conversation": False
-        }
+        name = item["name"].lower()
 
-    # Semantic search
-    query_embedding = model.encode([user_query])
+        keywords = user_query.split()
 
-    query_embedding = np.array(query_embedding).astype("float32")
-
-    distances, indices = index.search(query_embedding, 5)
+        if any(word in name for word in keywords):
+            matched_items.append(item)
 
     recommendations = []
 
-    for idx in indices[0]:
-
-        item = catalog[idx]
+    for item in matched_items[:5]:
 
         recommendations.append({
             "name": item["name"],
